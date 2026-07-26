@@ -6,6 +6,8 @@
 <title>VCTLE — Adivina al pro de VCT</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <style>
 :root{
   --bg:#0b0d10;
@@ -187,6 +189,60 @@ h1 span{color:var(--red);}
 
 .footnote{margin-top:30px; font-size:12px; color:var(--muted); line-height:1.6; border-top:1px solid var(--line); padding-top:16px;}
 
+/* LOBBY */
+.lobbybar{display:flex; justify-content:flex-end; margin-bottom:10px;}
+.lobbybtn{
+  font-family:'Rajdhani',sans-serif; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  font-size:12px; padding:8px 16px; cursor:pointer; border:1px solid var(--red); background:transparent; color:var(--red);
+  clip-path:polygon(8px 0,100% 0,100% 100%,0 100%,0 8px);
+}
+.lobbybtn:hover{background:var(--red); color:#160306;}
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(5,6,8,.85); z-index:100;
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.modal-overlay.hidden{display:none;}
+.modal-box{
+  background:var(--panel); border:1px solid var(--line); max-width:420px; width:100%;
+  padding:26px; clip-path:polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%);
+  position:relative;
+}
+.modal-box h3{font-family:'Rajdhani',sans-serif; text-transform:uppercase; letter-spacing:.04em; margin:0 0 4px; font-size:22px;}
+.modal-box p.hint{color:var(--muted); font-size:13px; margin:0 0 18px;}
+.modal-close{position:absolute; top:14px; right:16px; cursor:pointer; color:var(--muted); font-size:18px; background:none; border:none;}
+.modal-tabs{display:flex; gap:6px; margin-bottom:18px;}
+.modal-tab{flex:1; text-align:center; padding:9px; cursor:pointer; font-family:'Rajdhani',sans-serif; font-weight:600; letter-spacing:.05em; text-transform:uppercase; font-size:13px; background:var(--panel-2); border:1px solid var(--line); color:var(--muted);}
+.modal-tab.active{background:var(--red); color:#160306; border-color:var(--red);}
+.modal-field{margin-bottom:14px;}
+.modal-field label{display:block; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-family:'Rajdhani',sans-serif;}
+.modal-field input{width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--gold); font-family:'Chakra Petch',monospace; font-size:15px; padding:11px 14px; outline:none;}
+.modal-field input:focus{border-color:var(--red);}
+.modal-pane{display:none;}
+.modal-pane.active{display:block;}
+.modal-error{color:var(--wrong-red); font-size:12px; margin-top:-6px; margin-bottom:12px; min-height:14px;}
+.roomcode-display{
+  text-align:center; padding:18px; background:var(--panel-2); border:1px dashed var(--red); margin-bottom:16px;
+}
+.roomcode-display .code{font-family:'Rajdhani',sans-serif; font-weight:700; font-size:34px; letter-spacing:.2em; color:var(--red);}
+.roomcode-display .waiting{font-size:12px; color:var(--muted); margin-top:8px;}
+.spinner{display:inline-block; width:10px; height:10px; border:2px solid var(--muted); border-top-color:var(--red); border-radius:50%; animation:spin .8s linear infinite; margin-right:6px; vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.vsbar{
+  display:flex; align-items:center; gap:14px; margin-bottom:16px; padding:12px 16px;
+  background:var(--panel); border:1px solid var(--line);
+}
+.vsplayer{flex:1;}
+.vsplayer .vname{font-family:'Rajdhani',sans-serif; font-weight:700; font-size:14px; text-transform:uppercase; margin-bottom:6px; display:flex; align-items:center; gap:6px;}
+.vsplayer .vname.you::after{content:"(vos)"; font-size:10px; color:var(--muted); font-weight:500; text-transform:none;}
+.vspips{display:flex; gap:3px;}
+.vspip{width:9px; height:12px; background:var(--wrong); border:1px solid var(--line);}
+.vspip.used{background:var(--red-dim); border-color:var(--red);}
+.vspip.won{background:var(--correct-dim); border-color:var(--correct);}
+.vsstatus{font-size:11px; color:var(--muted); margin-top:4px;}
+.vsstatus.won{color:var(--correct);}
+.vsdivider{font-family:'Rajdhani',sans-serif; font-weight:700; color:var(--red); font-size:16px;}
+
 @media(max-width:640px){
   .headerrow, .row{grid-template-columns: .9fr .7fr .6fr .8fr .5fr .9fr .7fr;}
   .cell{font-size:10px; padding:7px 4px; min-height:48px;}
@@ -204,7 +260,61 @@ h1 span{color:var(--red);}
     <p class="sub">Adiviná al jugador profesional de Valorant. Cada intento compara país, región, equipo, rol de IGL, sus 3 agentes más jugados (últimos 90 días) y earnings de carrera contra el jugador secreto. Elegí una, varias o las 4 regiones. Verde = correcto, ámbar = cerca, gris = no.</p>
   </div>
 
+  <div class="lobbybar">
+    <button class="lobbybtn" id="openLobbyBtn" type="button">🎮 Jugar en lobby (2 jugadores)</button>
+  </div>
+
+  <!-- MODAL LOBBY -->
+  <div class="modal-overlay hidden" id="lobbyModal">
+    <div class="modal-box">
+      <button class="modal-close" id="closeLobbyBtn">✕</button>
+      <h3>Lobby VCTLE</h3>
+      <p class="hint">Creá una sala o unite con un código para enfrentar a otra persona adivinando al mismo jugador.</p>
+      <div class="modal-tabs">
+        <div class="modal-tab active" data-tab="create">Crear sala</div>
+        <div class="modal-tab" data-tab="join">Unirse</div>
+      </div>
+
+      <div class="modal-pane active" id="paneCreate">
+        <div class="modal-field">
+          <label>Tu nombre</label>
+          <input type="text" id="createName" maxlength="16" placeholder="Ej. Juan">
+        </div>
+        <div class="modal-field">
+          <label>Regiones</label>
+          <div class="tabs" id="lobbyRegionTabs" style="margin:0;"></div>
+        </div>
+        <div class="modal-error" id="createError"></div>
+        <button class="btn primary" id="createRoomBtn" type="button" style="width:100%;">Crear sala</button>
+      </div>
+
+      <div class="modal-pane" id="paneJoin">
+        <div class="modal-field">
+          <label>Tu nombre</label>
+          <input type="text" id="joinName" maxlength="16" placeholder="Ej. Pipo">
+        </div>
+        <div class="modal-field">
+          <label>Código de sala</label>
+          <input type="text" id="joinCode" maxlength="4" placeholder="Ej. XQ7T" style="text-transform:uppercase; letter-spacing:.2em;">
+        </div>
+        <div class="modal-error" id="joinError"></div>
+        <button class="btn primary" id="joinRoomBtn" type="button" style="width:100%;">Unirse</button>
+      </div>
+
+      <div id="roomWaitPane" style="display:none;">
+        <div class="roomcode-display">
+          <div class="code" id="roomCodeText">----</div>
+          <div class="waiting"><span class="spinner"></span>Esperando a que se una el rival…</div>
+        </div>
+        <button class="btn" id="cancelRoomBtn" type="button" style="width:100%;">Cancelar sala</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="vsbar" id="vsbar" style="display:none;"></div>
+
   <div class="tabs" id="tabs"></div>
+
   <div class="tabs" style="margin-top:-10px;">
     <button id="applyRegionsBtn" type="button">Jugar con esta selección</button>
     <span class="regioncount" id="regionCount"></span>
@@ -737,9 +847,23 @@ function submitGuess(name){
   $("#guessInput").value = "";
   $("#suggestions").style.display = "none";
 
-  if(found.n === target.n){
+  const won = found.n === target.n;
+  const outOfTries = guesses.length >= maxGuesses;
+
+  if(lobby.active && lobby.roomRef){
+    const update = { attempts: guesses.length };
+    if(won){ update.status = "won"; update.finishedAt = Date.now(); }
+    lobby.roomRef.child("players/" + lobby.role).update(update);
+  }
+
+  if(lobby.active){
+    // en modo lobby, el cierre de partida lo maneja el listener de Firebase
+    return;
+  }
+
+  if(won){
     endGame(true);
-  } else if(guesses.length >= maxGuesses){
+  } else if(outOfTries){
     endGame(false);
   }
 }
@@ -787,7 +911,14 @@ $("#guessForm").addEventListener("submit",(e)=>{
   submitGuess(input.value);
 });
 
-$("#newGameBtn").addEventListener("click", ()=> newGame(activeRegions));
+$("#newGameBtn").addEventListener("click", ()=>{
+  if(lobby.active){
+    if(lobby.roomRef) lobby.roomRef.remove().catch(()=>{});
+    resetLobbyUI();
+  } else {
+    newGame(activeRegions);
+  }
+});
 $("#applyRegionsBtn").addEventListener("click", ()=> newGame(selectedRegions));
 
 $("#copyBtn").addEventListener("click", ()=>{
@@ -811,7 +942,271 @@ $("#copyBtn").addEventListener("click", ()=>{
   setTimeout(()=>btn.textContent = old, 1500);
 });
 
-// ---------- INIT ----------
+// ---------- LOBBY (Firebase Realtime Database) ----------
+const firebaseConfig = {
+  apiKey: "AIzaSyCdTUlywaPRsCuKhVYaL0elxQLwyYLY7Is",
+  authDomain: "vctle-lobby.firebaseapp.com",
+  databaseURL: "https://vctle-lobby-default-rtdb.firebaseio.com",
+  projectId: "vctle-lobby",
+  storageBucket: "vctle-lobby.firebasestorage.app",
+  messagingSenderId: "666063588046",
+  appId: "1:666063588046:web:919eba27cc55e612061e9f"
+};
+let fbApp = null, fbDb = null;
+try{
+  fbApp = firebase.initializeApp(firebaseConfig);
+  fbDb = firebase.database();
+}catch(e){ /* firebase no disponible */ }
+
+let lobby = {
+  active: false,
+  role: null,      // "host" | "guest"
+  code: null,
+  roomRef: null,
+  regions: null,
+  myName: "",
+  rivalName: "",
+  unsub: null,
+};
+let lobbyRegionSel = new Set(["AMER","EMEA","PAC","CN"]);
+
+function genRoomCode(){
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for(let i=0;i<4;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
+function renderLobbyRegionTabs(){
+  const wrap = $("#lobbyRegionTabs");
+  wrap.innerHTML = "";
+  REGION_ORDER.forEach(r=>{
+    const label = document.createElement("label");
+    label.className = "tab" + (lobbyRegionSel.has(r) ? " active" : "");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = lobbyRegionSel.has(r);
+    cb.onchange = () => {
+      if(cb.checked) lobbyRegionSel.add(r); else lobbyRegionSel.delete(r);
+      if(lobbyRegionSel.size === 0){ lobbyRegionSel.add(r); cb.checked = true; }
+      label.classList.toggle("active", lobbyRegionSel.has(r));
+    };
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(REGION_LABEL[r]));
+    wrap.appendChild(label);
+  });
+}
+
+// --- Modal open/close/tabs ---
+$("#openLobbyBtn").addEventListener("click", ()=>{
+  renderLobbyRegionTabs();
+  $("#lobbyModal").classList.remove("hidden");
+});
+$("#closeLobbyBtn").addEventListener("click", ()=> $("#lobbyModal").classList.add("hidden"));
+document.querySelectorAll(".modal-tab").forEach(tab=>{
+  tab.addEventListener("click", ()=>{
+    document.querySelectorAll(".modal-tab").forEach(t=>t.classList.remove("active"));
+    tab.classList.add("active");
+    document.querySelectorAll(".modal-pane").forEach(p=>p.classList.remove("active"));
+    $("#pane" + (tab.dataset.tab === "create" ? "Create" : "Join")).classList.add("active");
+  });
+});
+
+// --- Crear sala ---
+$("#createRoomBtn").addEventListener("click", async ()=>{
+  const name = $("#createName").value.trim();
+  const errEl = $("#createError");
+  errEl.textContent = "";
+  if(!name){ errEl.textContent = "Ingresá tu nombre."; return; }
+  if(!fbDb){ errEl.textContent = "No se pudo conectar al servidor de salas."; return; }
+
+  const regions = [...lobbyRegionSel];
+  const roomPool = PLAYERS.filter(p => regions.includes(p.r));
+  const targetPlayer = roomPool[Math.floor(Math.random()*roomPool.length)];
+  const code = genRoomCode();
+
+  const room = {
+    createdAt: Date.now(),
+    regions: regions,
+    target: targetPlayer.n,
+    status: "waiting",
+    players: {
+      host: { name, attempts: 0, status: "playing", joinedAt: Date.now() }
+    }
+  };
+
+  try{
+    await fbDb.ref("rooms/" + code).set(room);
+  }catch(e){
+    errEl.textContent = "No se pudo crear la sala. Intentá de nuevo.";
+    return;
+  }
+
+  lobby.role = "host";
+  lobby.code = code;
+  lobby.regions = regions;
+  lobby.myName = name;
+  lobby.roomRef = fbDb.ref("rooms/" + code);
+
+  $("#paneCreate").classList.remove("active");
+  $("#paneJoin").classList.remove("active");
+  document.querySelectorAll(".modal-tabs")[0].style.display = "none";
+  $("#roomWaitPane").style.display = "block";
+  $("#roomCodeText").textContent = code;
+
+  listenRoom();
+});
+
+// --- Unirse a sala ---
+$("#joinRoomBtn").addEventListener("click", async ()=>{
+  const name = $("#joinName").value.trim();
+  const code = $("#joinCode").value.trim().toUpperCase();
+  const errEl = $("#joinError");
+  errEl.textContent = "";
+  if(!name){ errEl.textContent = "Ingresá tu nombre."; return; }
+  if(!code || code.length !== 4){ errEl.textContent = "Ingresá un código válido de 4 caracteres."; return; }
+  if(!fbDb){ errEl.textContent = "No se pudo conectar al servidor de salas."; return; }
+
+  const ref = fbDb.ref("rooms/" + code);
+  let snap;
+  try{
+    snap = await ref.once("value");
+  }catch(e){
+    errEl.textContent = "No se pudo buscar la sala.";
+    return;
+  }
+  const roomData = snap.val();
+  if(!roomData){ errEl.textContent = "No existe una sala con ese código."; return; }
+  if(roomData.status !== "waiting"){ errEl.textContent = "Esa sala ya está en juego o finalizada."; return; }
+
+  try{
+    await ref.child("players/guest").set({ name, attempts: 0, status: "playing", joinedAt: Date.now() });
+    await ref.child("status").set("playing");
+  }catch(e){
+    errEl.textContent = "No se pudo unir a la sala.";
+    return;
+  }
+
+  lobby.role = "guest";
+  lobby.code = code;
+  lobby.regions = roomData.regions;
+  lobby.myName = name;
+  lobby.roomRef = ref;
+
+  listenRoom();
+});
+
+$("#cancelRoomBtn").addEventListener("click", async ()=>{
+  if(lobby.roomRef) { try{ await lobby.roomRef.remove(); }catch(e){} }
+  resetLobbyUI();
+});
+
+function resetLobbyUI(){
+  if(lobby.unsub) lobby.unsub();
+  lobby = { active:false, role:null, code:null, roomRef:null, regions:null, myName:"", rivalName:"", unsub:null };
+  $("#lobbyModal").classList.add("hidden");
+  $("#roomWaitPane").style.display = "none";
+  document.querySelectorAll(".modal-tabs")[0].style.display = "flex";
+  $("#paneCreate").classList.add("active");
+  $("#vsbar").style.display = "none";
+  $("#openLobbyBtn").style.display = "inline-block";
+  newGame(selectedRegions); // volver a modo 1 jugador
+}
+
+// --- Escuchar la sala en tiempo real ---
+function listenRoom(){
+  lobby.unsub = lobby.roomRef.on("value", (snap)=>{
+    const data = snap.val();
+    if(!data) return; // la sala fue eliminada
+
+    if(data.status === "playing" && !lobby.active){
+      // arrancar la partida sincronizada
+      lobby.active = true;
+      const rivalKey = lobby.role === "host" ? "guest" : "host";
+      lobby.rivalName = (data.players[rivalKey] && data.players[rivalKey].name) || "Rival";
+      startLobbyGame(data);
+    }
+
+    if(lobby.active){
+      renderVsBar(data);
+      // si alguien ganó y todavía no mostramos el cierre
+      const hostP = data.players.host, guestP = data.players.guest;
+      if(hostP && guestP && (hostP.status === "won" || guestP.status === "won") && !finished){
+        const iWon = data.players[lobby.role].status === "won";
+        const rivalKey2 = lobby.role === "host" ? "guest" : "host";
+        const rivalWon = data.players[rivalKey2].status === "won";
+        let firstWinnerKey = null;
+        if(hostP.status === "won" && guestP.status === "won"){
+          firstWinnerKey = hostP.finishedAt <= guestP.finishedAt ? "host" : "guest";
+        } else if(hostP.status === "won"){ firstWinnerKey = "host"; }
+        else if(guestP.status === "won"){ firstWinnerKey = "guest"; }
+        endLobbyGame(firstWinnerKey === lobby.role);
+      }
+    }
+  });
+}
+
+function renderVsBar(data){
+  const vs = $("#vsbar");
+  vs.style.display = "flex";
+  const hostP = data.players.host || {name:"?", attempts:0, status:"playing"};
+  const guestP = data.players.guest || {name:"Esperando…", attempts:0, status:"playing"};
+  const meIsHost = lobby.role === "host";
+
+  const pipsHTML = (p) => {
+    let out = "";
+    for(let i=0;i<maxGuesses;i++){
+      const cls = i < p.attempts ? (p.status==="won" && i===p.attempts-1 ? "used won" : "used") : "";
+      out += `<div class="vspip ${cls}"></div>`;
+    }
+    return out;
+  };
+  const statusText = (p) => p.status === "won" ? "¡Ganó!" : `${p.attempts}/${maxGuesses} intentos`;
+
+  vs.innerHTML = `
+    <div class="vsplayer">
+      <div class="vname ${meIsHost?'you':''}">${hostP.name || '...'}</div>
+      <div class="vspips">${pipsHTML(hostP)}</div>
+      <div class="vsstatus ${hostP.status==='won'?'won':''}">${statusText(hostP)}</div>
+    </div>
+    <div class="vsdivider">VS</div>
+    <div class="vsplayer">
+      <div class="vname ${!meIsHost?'you':''}">${guestP.name || '...'}</div>
+      <div class="vspips">${pipsHTML(guestP)}</div>
+      <div class="vsstatus ${guestP.status==='won'?'won':''}">${statusText(guestP)}</div>
+    </div>
+  `;
+}
+
+function startLobbyGame(data){
+  $("#lobbyModal").classList.add("hidden");
+  $("#openLobbyBtn").style.display = "none";
+  activeRegions = new Set(data.regions);
+  pool = poolFor(activeRegions);
+  target = pool.find(p => p.n === data.target) || pool[0];
+  guesses = [];
+  finished = false;
+  $("#modeLabel").textContent = labelFor(activeRegions) + " · vs " + lobby.rivalName;
+  $("#rows").innerHTML = "";
+  $("#guessInput").value = "";
+  $("#guessInput").disabled = false;
+  $("#guessBtn").disabled = false;
+  $("#endcard").classList.remove("show","win","lose");
+  renderAmmo();
+  updateCounter();
+  renderVsBar(data);
+}
+
+async function endLobbyGame(iWon){
+  finished = true;
+  $("#guessInput").disabled = true;
+  $("#guessBtn").disabled = true;
+  const card = $("#endcard");
+  card.classList.add("show", iWon ? "win" : "lose");
+  $("#endTitle").textContent = iWon ? "¡Ganaste el duelo!" : "Tu rival adivinó primero";
+  $("#endText").textContent = `Era ${target.n} (${target.t}, ${target.c}).`;
+}
+
 loadAgentIcons();
 renderTabs();
 newGame(selectedRegions);
